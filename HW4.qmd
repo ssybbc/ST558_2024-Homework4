@@ -1,0 +1,177 @@
+---
+title: "Homework 4"
+author: "Siyuan Su"
+format: html
+editor: visual
+---
+
+For this week, we learned things about data reading and manipulation in R, which I personally believe is an important part to learn. If you learned to do data manipulation, or handling in R well, then you will be independent from Excel and throw away that crutche. As tidyverse is a very versatile package completing this task, we need to install and use this package first.
+
+```{r}
+library (tidyverse)
+```
+
+# Task 1: Conceptual questions
+
+For this week, we will first answer several questions as in the exam format, quite conceptual, then dive into the practical part.
+
+## If your working directory is myfolder/homework/, what relative path would you specify to get the file located at myfolder/MyData.csv?
+
+> I would do the following code to get at the directory name of the files. If we need to change the working directory into that folder, use this:
+
+setwd (dirname(getwd())) read.csv (MyData.csv)
+
+> If we are just going to get the file, then
+
+read.csv (dirname(getwd()), MyData.csv)
+
+## What are the major benefits of using R projects
+
+> 1.  The R projects are directly associated with a directory so each project has a designated one. This is far better way to organize all the data analysis! For example, it is much easier to import data if you put the raw data that is going to be needed in the same directory of your working directory. That way you could directly use relative file path.
+> 2.  With R project we could improve reproducibility because files were put in the same directory.
+> 3.  The R project improves the workflow of collaboration. One could choose to make a new version-controlled project to track all modifications and easily shared with other people for them to continue modify your work.
+
+## What is git and what is github?
+
+> Git is a version control software and github is an online hosting service for git-based projects. The cool thing is that git keeps track of all files in the folder, which is called repo on github.
+
+## What are the two main differences between a tibble and a data.frame?
+
+> 1.  Printing. When printing out a tibble, it would give out more concise and more aesthetic form, only show a few rows and columns. At the same time printing tibble each column also report its type.
+> 2.  Subsetting. Tibbles are strict about subsetting. For data frame, df \[,1\] returns a data frame with the first column only, but for tibble, \[,1\] returns a vector.
+
+## Rewrite the following nested function call using BaseR's chaining operator:
+
+arrange (filter (select(as_tibble(iris), starts_with ("Petal"), Species), Petal.Length \< 1.55), Species)
+
+> The above code could be rewritten as the following code if with the chaining operator.
+
+as_tibble(iris) \|\> select (starts_with ("Petal"), Species) \|\> filter (Petal.Length \< 1.55) \|\> arrange (Species)
+
+I like the chaining operator in BaseR \|\> even better than %\>% because of its shape like an arrow. Meanwhile I understand %\>% might want people to think it looks like a metal chain, but instead it looks like a emoji to me.
+
+# Task 2 Reading Delimited Data
+
+## Glass data
+
+First we want to import the data from the given URL, add column names and print out the data as a tibble. By looking at the data using text file reader first we know it is a comma delineated file and looks like pretty standard.
+
+```{r}
+glass <- read_csv ("https://www4.stat.ncsu.edu/~online/datasets/glass.data", col_names = FALSE)
+head (glass,3)
+```
+
+We could see the data has already been imported as a tibble, and its columns have named X1 through X11. We could use the mutate function to change its column names into meaningful names and then print the tibble.
+
+```{r}
+glass_rename <- glass |> mutate (Id = X1, RI = X2, Na = X3, Mg = X4, Al = X5, Si = X6, K = X7, Ca = X8, Ba = X9, Fe = X10, TypeofGlass = X11, .keep = "none")
+print (glass_rename)
+```
+
+Then we look at the value of the last variable: TypeofGlass. They are numeric but in factor they are factors with each number representing a different type of glass product. In addition, we wanted only to keep observations where Fe variable is less than 0.2 and the Type of Glass is either "tableware" or "headlamps".
+
+```{r}
+glass_rename_new <- glass_rename |> mutate (TypeofGlass = ifelse(TypeofGlass == 1, "building_windows_float_processed",
+                                                                 ifelse (TypeofGlass == 2, "building_windows_non_float_processed",
+                                                                         ifelse (TypeofGlass ==3, "vehicle_windows_float_processed",
+                                                                                 ifelse (TypeofGlass == 4, "vehicle_windows_non_float_processed",
+                                                                                         ifelse (TypeofGlass == 5, "containers",
+                                                                                                 ifelse (TypeofGlass == 6, "tableware", "headlamps"))))))) |>  filter (Fe < 0.2 , TypeofGlass %in% c ("tableware", "headlamps"))
+print (glass_rename_new)
+```
+
+## Yeast data
+
+First open the file to see the delimiter type. Judging from the file it is a tab delimiter, then try using read_tsv to read those files.
+
+```{r}
+yeast918 <- read_tsv ("https://www4.stat.ncsu.edu/~online/datasets/yeast.data", )
+```
+
+However we have got a character string, which means the delimiter is not tab, but may be two spaces.
+
+```{r}
+yeast918 <- read_delim("https://www4.stat.ncsu.edu/~online/datasets/yeast.data", delim = "  ", col_names = FALSE)
+head (yeast918)
+
+```
+
+The data reading is successful. Now add the column names. Previously I used mutate function, which feels curbumsome. This time try the colnames () function.
+
+```{r}
+colnames (yeast918) <- c ("seq_name", "mcg", "gvh", "alm", "mit", "erl", "pox", "vac", "nuc", "class")
+yeast918
+```
+
+Now the column names are successfully added. Start from here we need to remove the seq_name and nuc columns, and then add new column to write in average value of each of numeric variable group by different class.
+
+```{r}
+yeast918_summarized <- yeast918 |> select (-seq_name, -nuc) |> group_by (class) |> mutate (across (where (is.numeric), .fns = mean, .names = "mean_{.col}"))
+head (yeast918_summarized)
+```
+
+Looks like we already got the mean value for each column, grouped by class.
+
+# Task 3: Combining Excel and Delimited Data
+
+## white wine data
+
+### Data import
+
+Since I already downloaded the data in the data folder under my working directory of R, I will import it into R and print out the tibble.
+
+```{r}
+library (readxl)
+wine918 <- read_excel ("data/white-wine.xlsx")
+wine918
+```
+
+### Rename columns (variables)
+
+Now rename the variable names with a blank within by reading in the variable names from the 2nd sheet of the same file. This time we need to use the excel_sheets() function to extract the 2nd excel sheet from the same excel file.
+
+```{r}
+wine918_2 <- read_excel ("data/white-wine.xlsx", sheet = excel_sheets("data/white-wine.xlsx")[2])
+wine918_2
+```
+
+The 2nd excel sheet only contains the variable names in a format of a tibble. Then we use the function colname to rename the column of the wine data.
+
+```{r}
+colnames(wine918) <- wine918_2$Variables
+wine918
+```
+
+### Adding another column
+
+Now we want to add another column indicating the type of the wine.
+
+```{r}
+wine918_3 <- wine918 |> mutate (wine_type = "white")
+```
+
+## Red wine data
+
+This is a semi-colon delimited file. Read using the correct function
+
+```{r}
+library (readr)
+redwine918 <- read_delim ("https://www4.stat.ncsu.edu/~online/datasets/red-wine.csv", delim = ";")
+colnames(redwine918) <- wine918_2$Variables
+redwine918 <- redwine918 |> mutate (wine_type = "red")
+```
+
+## Data combine: totalwine!
+
+Since the white wine and red wine data have the same data structure and the same variables, let's combine them!
+
+```{r}
+totalwine918 <- dplyr::bind_rows(wine918_3, redwine918)
+```
+
+Now we are ready for some data manipulations!!
+
+```{r}
+totalwine_919 <- totalwine918 |> filter (quality >6.5, alcohol < 132) |> arrange (desc (quality)) |> select (contains ("acid"), alcohol, wine_type, quality) |> group_by(quality) |> mutate (alcoholmean = mean (alcohol), alcoholsd = sd (alcohol))
+totalwine_919
+```
